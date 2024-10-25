@@ -1,3 +1,4 @@
+import os
 import unicodedata
 from colorama import Fore, Style
 import colorama
@@ -37,8 +38,11 @@ current_student = ""
 
 for line in students:
     # Check for a new grade
-    if "Turma: TURMA" in line:
-        grade = line.split("TURMA ")[1].split(" ")[0].strip()  # .strip() removes any whitespace
+    if "Turma: TURMA" in line or "Turma: JARDIM" in line:
+        if "JARDIM" in line:
+            grade = line.split("Turma: ")[1].split(" -")[0]
+        else:
+            grade = line.split("TURMA ")[1].split(" ")[0].strip()  # .strip() removes any whitespace
         current_grade = grade
         # print("Current grade: " + current_grade)
         
@@ -65,7 +69,19 @@ for line in students:
 
 while True:
     command = input(Fore.RED + "Lagoraweb: " + Style.RESET_ALL)
-    if command.isdigit() and command in grades:
+
+    if command.isdigit() and command in grades or "J1" in command or "J2" in command:
+        command_mappings = {
+            "J1A": "JARDIM I A",
+            "J2A": "JARDIM II A",
+            "J1B": "JARDIM I B",
+            "J2B": "JARDIM II B"
+        }
+
+        # Update command with the mapped full version if it exists
+        if command in command_mappings:
+            command = command_mappings[command]
+        
         names = list(grades[command].keys())
         for name in names:
             print(Fore.GREEN + name + Style.RESET_ALL)
@@ -76,5 +92,8 @@ while True:
                     print(Fore.RED + "Aluno: " + student_ + Style.RESET_ALL)
                     print(Fore.YELLOW + "Turma: " + grade_ + Style.RESET_ALL)
                     print(Fore.YELLOW + "Idade: " + str(get_age(student_)) + Style.RESET_ALL)
-                    print(Fore.GREEN + "Números: "+ str(phones_).replace("'", "").replace("[", "").replace("]", "") + Style.RESET_ALL)
+                    print(Fore.GREEN + "Números: " + str(phones_).replace("'", "").replace("[", "").replace("]", "") + Style.RESET_ALL)
                     print("\n")
+
+    if command == "c":
+        os.system("clear")
