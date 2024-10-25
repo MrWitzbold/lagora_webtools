@@ -7,6 +7,13 @@ colorama.init()
 # Read student data from the file
 students = open("alunos.txt", "r").readlines()
 
+ages = []
+
+def get_age(name):
+    for age in ages:
+        if age[0] == name:
+            return 2024-int(age[1])
+
 def normalize(name):
     normalized_name = unicodedata.normalize('NFD', name)
     cleaned_name = ''.join(c for c in normalized_name if unicodedata.category(c) != 'Mn')
@@ -54,7 +61,7 @@ for line in students:
         # print("Added phones: " + phones)
     elif 'Nasc' in line:
         date = line.split("Nasc.: ")[1].split("<")[0]
-        
+        ages.append([current_student, date.split("/")[2]])
 
 while True:
     command = input(Fore.RED + "Lagoraweb: " + Style.RESET_ALL)
@@ -67,6 +74,7 @@ while True:
             for student_, phones_ in students_.items():
                 if normalize(command.lower()) in normalize(student_.lower()):
                     print(Fore.RED + "Aluno: " + student_ + Style.RESET_ALL)
-                    print(Fore.BLUE + "Turma: " + grade_ + Style.RESET_ALL)
-                    print(Fore.GREEN + "Números: "+ str(phones_) + Style.RESET_ALL)
+                    print(Fore.YELLOW + "Turma: " + grade_ + Style.RESET_ALL)
+                    print(Fore.YELLOW + "Idade: " + str(get_age(student_)) + Style.RESET_ALL)
+                    print(Fore.GREEN + "Números: "+ str(phones_).replace("'", "").replace("[", "").replace("]", "") + Style.RESET_ALL)
                     print("\n")
