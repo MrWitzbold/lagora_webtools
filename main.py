@@ -6,9 +6,14 @@ import colorama
 colorama.init()
 
 # Read student data from the file
-students = open("alunos.txt", "r").readlines()
+students = open("alunos.txt", "r", encoding="utf-8").readlines()
 
 ages = []
+
+def create_vcf(contact_name, phone_number):
+    # Define the vCard format
+    vcard_data = f"BEGIN:VCARD\nVERSION:3.0\nFN:{contact_name}\nTEL:{phone_number}\nEND:VCARD\n"
+    return vcard_data
 
 def get_age(name):
     for age in ages:
@@ -70,7 +75,7 @@ for line in students:
 while True:
     command = input(Fore.RED + "Lagoraweb: " + Style.RESET_ALL)
 
-    if command.isdigit() and command in grades or "J1" in command or "J2" in command:
+    if (command.isdigit() and command in grades or "J1" in command or "J2" in command) or command == "getphone":
         command_mappings = {
             "J1A": "JARDIM I A",
             "J2A": "JARDIM II A",
@@ -79,12 +84,27 @@ while True:
         }
 
         # Update command with the mapped full version if it exists
-        if command in command_mappings:
-            command = command_mappings[command]
+        if command == "getphone":
+            print("Formatting phones...")
+            phone_vcfs = ""
+            
+            for grade_, students_ in grades.items():
+                for student_, phones_ in students_.items():
+                    for phone_number in str(phones_).split(","):
+                        vcf = create_vcf(student_, phone_number.replace("(", "").replace(")", "").replace("[", "").replace("]", "").replace("'", ""))
+                        phones += vcf
+                        print(vcf)
+                            
+            open("phones.vcf", "w", encoding="utf-8").write(phone_vcfs)
+            
+            
+        else:
+            if command in command_mappings:
+                command = command_mappings[command]
         
-        names = list(grades[command].keys())
-        for name in names:
-            print(Fore.GREEN + name + Style.RESET_ALL)
+            names = list(grades[command].keys())
+            for name in names:
+                print(Fore.GREEN + name + Style.RESET_ALL)
     else:
         for grade_, students_ in grades.items():
             for student_, phones_ in students_.items():
