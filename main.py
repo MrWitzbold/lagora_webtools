@@ -12,7 +12,7 @@ ages = []
 
 def create_vcf(contact_name, phone_number):
     # Define the vCard format
-    vcard_data = f"BEGIN:VCARD\nVERSION:3.0\nFN:{contact_name}\nTEL:{phone_number}\nEND:VCARD\n"
+    vcard_data = f"BEGIN:VCARD\nVERSION:3.0\nFN:{contact_name}\nTEL:{phone_number}\nEND:VCARD\n\n"
     return vcard_data
 
 def get_age(name):
@@ -92,7 +92,7 @@ while True:
                 for student_, phones_ in students_.items():
                     for phone_number in str(phones_).split(","):
                         vcf = create_vcf(student_, phone_number.replace("(", "").replace(")", "").replace("[", "").replace("]", "").replace("'", ""))
-                        phones += vcf
+                        phone_vcfs += vcf
                         print(vcf)
                             
             open("phones.vcf", "w", encoding="utf-8").write(phone_vcfs)
