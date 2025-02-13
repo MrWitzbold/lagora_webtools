@@ -6,19 +6,8 @@ import colorama
 colorama.init()
 
 # Read student data from the file
-students = open("alunos.txt", "r", encoding="utf-8").readlines()
-
-ages = []
-
-def create_vcf(contact_name, phone_number):
-    # Define the vCard format
-    vcard_data = f"BEGIN:VCARD\nVERSION:3.0\nFN:{contact_name}\nTEL:{phone_number}\nEND:VCARD\n\n"
-    return vcard_data
-
-def get_age(name):
-    for age in ages:
-        if age[0] == name:
-            return 2024-int(age[1])
+students2025 = open("2025", "r", encoding="utf-8").readlines()
+students2024 = open("2024", "r", encoding="utf-8").readlines()
 
 def normalize(name):
     normalized_name = unicodedata.normalize('NFD', name)
@@ -37,45 +26,58 @@ def view_dict(d, indent=0):
     else:
         print(" " * indent + str(d))
 
-grades = {}
-current_grade = ""
-current_student = ""
-
-for line in students:
-    # Check for a new grade
-    if "Turma: TURMA" in line or "Turma: JARDIM" in line:
-        if "JARDIM" in line:
-            grade = line.split("Turma: ")[1].split(" -")[0]
-        else:
-            grade = line.split("TURMA ")[1].split(" ")[0].strip()  # .strip() removes any whitespace
-        current_grade = grade
-        # print("Current grade: " + current_grade)
+class database:
+    def __init__(self, students_file):
+        self.students_file = students_file
+        self.ages = []
+        self.grades = {}
+        self.current_grade = ""
+        self.current_student = ""
         
-    # Check for a student name
-    elif "Nome: " in line:
-        name = line.split('bold;">')[1].split("<")[0].strip()
-        current_student = name
-        # print("Current student: " + current_student)
-        
-    # Check for a phone number
-    elif 'line-height: 1.215332;">' in line and "(" in line and "Telefone" not in line:
-        phones = line.split('line-height: 1.215332;">')[1].split("<")[0].strip()
-        
-        # Initialize grade if not already in grades dictionary
-        if current_grade not in grades:
-            grades[current_grade] = {}
-        
-        # Add student and phone number
-        grades[current_grade][current_student] = [phones]
-        # print("Added phones: " + phones)
-    elif 'Nasc' in line:
-        date = line.split("Nasc.: ")[1].split("<")[0]
-        ages.append([current_student, date.split("/")[2]])
+        for line in students_file:
+            # Check for a new grade
+            if "Turma: TURMA" in line or "Turma: JARDIM" in line:
+                if "JARDIM" in line:
+                    self.grade = line.split("Turma: ")[1].split(" -")[0]
+                else:
+                    self.grade = line.split("TURMA ")[1].split(" ")[0].strip()  # .strip() removes any whitespace
+                self.current_grade = self.grade
+                # print("Current grade: " + current_grade)
+                
+            # Check for a student name
+            elif "Nome: " in line:
+                self.name = line.split('bold;">')[1].split("<")[0].strip()
+                self.current_student = self.name
+                # print("Current student: " + current_student)
+                
+            # Check for a phone number
+            elif 'line-height: 1.215332;">' in line and "(" in line and "Telefone" not in line:
+                self.phones = line.split('line-height: 1.215332;">')[1].split("<")[0].strip()
+                
+                # Initialize grade if not already in grades dictionary
+                if self.current_grade not in self.grades:
+                    self.grades[self.current_grade] = {}
+                
+                # Add student and phone number
+                self.grades[self.current_grade][self.current_student] = [self.phones]
+                # print("Added phones: " + phones)
+            elif 'Nasc' in line:
+                self.date = line.split("Nasc.: ")[1].split("<")[0]
+                self.ages.append([self.current_student, self.date.split("/")[2]])
+                
+    def get_age(self, name):
+        for age in self.ages:
+            if age[0] == name:
+                return 2024-int(age[1])
+                
+db2025 = database(students2025)
+db2024 = database(students2024)
 
 while True:
+    db = db2025
     command = input(Fore.RED + "Lagoraweb: " + Style.RESET_ALL)
 
-    if (command.isdigit() and command in grades or "J1" in command or "J2" in command) or command == "getphone":
+    if command.isdigit() and command in grades or "J1" in command or "J2" in command:
         command_mappings = {
             "J1A": "JARDIM I A",
             "J2A": "JARDIM II A",
@@ -84,34 +86,40 @@ while True:
         }
 
         # Update command with the mapped full version if it exists
-        if command == "getphone":
-            print("Formatting phones...")
-            phone_vcfs = ""
-            
-            for grade_, students_ in grades.items():
-                for student_, phones_ in students_.items():
-                    for phone_number in str(phones_).split(","):
-                        vcf = create_vcf(student_, phone_number.replace("(", "").replace(")", "").replace("[", "").replace("]", "").replace("'", ""))
-                        phone_vcfs += vcf
-                        print(vcf)
-                            
-            open("phones.vcf", "w", encoding="utf-8").write(phone_vcfs)
-            
-            
-        else:
-            if command in command_mappings:
-                command = command_mappings[command]
+        if command in command_mappings:
+            command = command_mappings[command]
         
-            names = list(grades[command].keys())
-            for name in names:
-                print(Fore.GREEN + name + Style.RESET_ALL)
+        names = list(db.grades[command].keys())
+        for name in names:
+            print(Fore.GREEN + name + Style.RESET_ALL)
+    elif command == "compare":
+        print("Comparing so farrily...")
+        list1 = []
+        list2 = []
+        
+        for grade_, students_ in db2024.grades.items():
+            for student_, phones_ in students_.items():
+                list1.append(student_)
+                
+        for grade_, students_ in db2025.grades.items():
+            for student_, phones_ in students_.items():
+                list2.append(student_)
+                
+        for student1 in list1:
+            found = False
+            for student2 in list2:
+                if student1 == student2:
+                    found = True
+            if found == False:
+                print(student1)
+        
     else:
-        for grade_, students_ in grades.items():
+        for grade_, students_ in db.grades.items():
             for student_, phones_ in students_.items():
                 if normalize(command.lower()) in normalize(student_.lower()):
                     print(Fore.RED + "Aluno: " + student_ + Style.RESET_ALL)
                     print(Fore.YELLOW + "Turma: " + grade_ + Style.RESET_ALL)
-                    print(Fore.YELLOW + "Idade: " + str(get_age(student_)) + Style.RESET_ALL)
+                    print(Fore.YELLOW + "Idade: " + str(db.get_age(student_)) + Style.RESET_ALL)
                     print(Fore.GREEN + "Números: " + str(phones_).replace("'", "").replace("[", "").replace("]", "") + Style.RESET_ALL)
                     print("\n")
 
