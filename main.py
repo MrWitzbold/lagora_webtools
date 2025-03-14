@@ -1,13 +1,9 @@
 import os
 import unicodedata
-from colorama import Fore, Style
-import colorama
-
-colorama.init()
 
 # Read student data from the file
 students2025 = open("2025", "r", encoding="utf-8").readlines()
-students2024 = open("2024", "r", encoding="utf-8").readlines()
+# students2024 = open("2024", "r", encoding="utf-8").readlines()
 
 def normalize(name):
     normalized_name = unicodedata.normalize('NFD', name)
@@ -71,11 +67,11 @@ class database:
                 return 2024-int(age[1])
                 
 db2025 = database(students2025)
-db2024 = database(students2024)
+# db2024 = database(students2024)
 
 while True:
     db = db2025
-    command = input(Fore.RED + "Lagoraweb: " + Style.RESET_ALL)
+    command = input("Lagoraweb: ")
 
     if command.isdigit() and command in grades or "J1" in command or "J2" in command:
         command_mappings = {
@@ -91,7 +87,7 @@ while True:
         
         names = list(db.grades[command].keys())
         for name in names:
-            print(Fore.GREEN + name + Style.RESET_ALL)
+            print(name)
     elif command == "compare":
         print("Comparing so farrily...")
         list1 = []
@@ -117,10 +113,10 @@ while True:
         for grade_, students_ in db.grades.items():
             for student_, phones_ in students_.items():
                 if normalize(command.lower()) in normalize(student_.lower()):
-                    print(Fore.RED + "Aluno: " + student_ + Style.RESET_ALL)
-                    print(Fore.YELLOW + "Turma: " + grade_ + Style.RESET_ALL)
-                    print(Fore.YELLOW + "Idade: " + str(db.get_age(student_)) + Style.RESET_ALL)
-                    print(Fore.GREEN + "Números: " + str(phones_).replace("'", "").replace("[", "").replace("]", "") + Style.RESET_ALL)
+                    print("Aluno: " + student_)
+                    print("Turma: " + grade_)
+                    print("Idade: " + str(db.get_age(student_)))
+                    print("Números: " + str(phones_).replace("'", "").replace("[", "").replace("]", ""))
                     print("\n")
 
     if command == "c":
