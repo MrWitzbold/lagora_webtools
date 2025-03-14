@@ -73,7 +73,7 @@ while True:
     db = db2025
     command = input("Lagoraweb: ")
 
-    if command.isdigit() and command in grades or "J1" in command or "J2" in command:
+    if command.isdigit() and command in db.grades or "J1" in command or "J2" in command:
         command_mappings = {
             "J1A": "JARDIM I A",
             "J2A": "JARDIM II A",
