@@ -84,9 +84,12 @@ while True:
                 num += 1
         print(str(num) + " alunos\n")
     else:
-        num = 0
-        for studentx in students:
-            if command.lower() in studentx.name.lower():
-                studentx.present()
-                num += 1
-        print("Encontrei " + str(num) + " alunos")
+        if command != "c":
+            num = 0
+            for studentx in students:
+                if command.lower() in studentx.name.lower():
+                    studentx.present()
+                    num += 1
+            print("Encontrei " + str(num) + " alunos")
+        else:
+            os.system('cls' if os.name == 'nt' else 'clear')
