@@ -1,123 +1,92 @@
 import os
 import unicodedata
+from colorama import Fore, Style
+import colorama
+from datetime import datetime
 
-# Read student data from the file
-students2025 = open("2025", "r", encoding="utf-8").readlines()
-# students2024 = open("2024", "r", encoding="utf-8").readlines()
+colorama.init()
+# print(Fore.GREEN + name + Style.RESET_ALL)
+# students2025 = open("2025", "r", encoding="utf-8").readlines()
+# use phones modelo 2 html
 
-def normalize(name):
-    normalized_name = unicodedata.normalize('NFD', name)
-    cleaned_name = ''.join(c for c in normalized_name if unicodedata.category(c) != 'Mn')
-    return cleaned_name
+def calculate_age(birth_str):
+    birth_date = datetime.strptime(birth_str, "%d/%m/%Y")
+    today = datetime.today()
+    age = today.year - birth_date.year
 
-def view_dict(d, indent=0):
-    """Recursively display any dictionary structure."""
-    if isinstance(d, dict):
-        for key, value in d.items():
-            print(" " * indent + f"{key}:")
-            view_dict(value, indent + 4)
-    elif isinstance(d, list):
-        for item in d:
-            view_dict(item, indent + 4)
-    else:
-        print(" " * indent + str(d))
+    # Adjust if birthday hasn't occurred yet this year
+    if (today.month, today.day) < (birth_date.month, birth_date.day):
+        age -= 1
 
-class database:
-    def __init__(self, students_file):
-        self.students_file = students_file
-        self.ages = []
-        self.grades = {}
-        self.current_grade = ""
-        self.current_student = ""
-        
-        for line in students_file:
-            # Check for a new grade
-            if "Turma: TURMA" in line or "Turma: JARDIM" in line:
-                if "JARDIM" in line:
-                    self.grade = line.split("Turma: ")[1].split(" -")[0]
-                else:
-                    self.grade = line.split("TURMA ")[1].split(" ")[0].strip()  # .strip() removes any whitespace
-                self.current_grade = self.grade
-                # print("Current grade: " + current_grade)
-                
-            # Check for a student name
-            elif "Nome: " in line:
-                self.name = line.split('bold;">')[1].split("<")[0].strip()
-                self.current_student = self.name
-                # print("Current student: " + current_student)
-                
-            # Check for a phone number
-            elif 'line-height: 1.215332;">' in line and "(" in line and "Telefone" not in line:
-                self.phones = line.split('line-height: 1.215332;">')[1].split("<")[0].strip()
-                
-                # Initialize grade if not already in grades dictionary
-                if self.current_grade not in self.grades:
-                    self.grades[self.current_grade] = {}
-                
-                # Add student and phone number
-                self.grades[self.current_grade][self.current_student] = [self.phones]
-                # print("Added phones: " + phones)
-            elif 'Nasc' in line:
-                self.date = line.split("Nasc.: ")[1].split("<")[0]
-                self.ages.append([self.current_student, self.date.split("/")[2]])
-                
-    def get_age(self, name):
-        for age in self.ages:
-            if age[0] == name:
-                return 2024-int(age[1])
-                
-db2025 = database(students2025)
-# db2024 = database(students2024)
+    return age
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+html_landmark = '<span style="font-family: \'DejaVu Sans\', Arial, Helvetica, sans-serif; color: #000000; font-size: 8px; line-height: 1.1640625;">'
+html_landmark2 = '<span style="font-family: \'DejaVu Sans\', Arial, Helvetica, sans-serif; color: #000000; font-size: 8px; line-height: 1; *line-height: normal;">'
+html_files = [f for f in os.listdir(current_dir) if f.lower().endswith('.html')]
+html_path = ""
+
+if html_files:
+    html_path = os.path.join(current_dir, html_files[0])
+else:
+    print("No HTML files found in the folder.")
+    input("")
+    exit()
+    
+file = open(html_path, "r", encoding="utf-8").readlines()
+
+class student:
+    def __init__(self, ra, name, sex, birth, cohort, state, mat, phones):
+        self.ra = ra
+        self.name = name
+        self.sex = sex
+        self.birth = birth
+        self.cohort = cohort
+        self.state = state
+        self.mat = mat
+        self.phones = phones
+    def present(self):
+        print(Fore.RED + "Aluno: " + self.name + Style.RESET_ALL)
+        print(Fore.YELLOW + "Turma: " + self.cohort + Style.RESET_ALL)
+        print(Fore.YELLOW + "Idade: " + str(calculate_age(self.birth)) + Style.RESET_ALL)
+        print(Fore.GREEN + "Números: " + self.phones + Style.RESET_ALL)
+        print("\n")
+
+students = []
+num = 0
+data = []
+
+for line in file:
+    if html_landmark in line or html_landmark2 in line:
+        num += 1
+        data.append(line.replace(html_landmark, "").replace(html_landmark2, "").replace("</span></td>", "").replace("<br/>", "").replace("\n", ""))
+        if num == 9:
+            new_student = student(data[0], data[1], data[2], data[3], data[5], data[6], data[7], data[8]) # ignores 4th because it's redundant, its just like, 3º ano instead of 31 or 32
+            students.append(new_student)
+            num = 0
+            data = []
+            
 while True:
-    db = db2025
-    command = input("Lagoraweb: ")
-
-    if command.isdigit() and command in db.grades or "J1" in command or "J2" in command:
-        command_mappings = {
-            "J1A": "JARDIM I A",
-            "J2A": "JARDIM II A",
-            "J1B": "JARDIM I B",
-            "J2B": "JARDIM II B"
-        }
-
-        # Update command with the mapped full version if it exists
-        if command in command_mappings:
-            command = command_mappings[command]
-        
-        names = list(db.grades[command].keys())
-        for name in names:
-            print(name)
-    elif command == "compare":
-        print("Comparing so farrily...")
-        list1 = []
-        list2 = []
-        
-        for grade_, students_ in db2024.grades.items():
-            for student_, phones_ in students_.items():
-                list1.append(student_)
-                
-        for grade_, students_ in db2025.grades.items():
-            for student_, phones_ in students_.items():
-                list2.append(student_)
-                
-        for student1 in list1:
-            found = False
-            for student2 in list2:
-                if student1 == student2:
-                    found = True
-            if found == False:
-                print(student1)
-        
+    command = input(Fore.RED + "Lagoraweb: " + Style.RESET_ALL)
+    map1 = ["JARDIM I A", "JARDIM I B", "JARDIM II A", "JARDIM II B"]
+    map2 = ["J1A", "J2B", "J2A", "J2B"]
+    is_kindheit = False
+    for i in range(0, len(map2)):
+        if command == map2[i]:
+            is_kindheit = True
+            command = map1[i]
+            
+    if is_kindheit or command.isdigit():
+        num = 0
+        for studentx in students:
+            if command in studentx.cohort:
+                print(Fore.GREEN + studentx.name + Style.RESET_ALL)
+                num += 1
+        print(str(num) + " alunos\n")
     else:
-        for grade_, students_ in db.grades.items():
-            for student_, phones_ in students_.items():
-                if normalize(command.lower()) in normalize(student_.lower()):
-                    print("Aluno: " + student_)
-                    print("Turma: " + grade_)
-                    print("Idade: " + str(db.get_age(student_)))
-                    print("Números: " + str(phones_).replace("'", "").replace("[", "").replace("]", ""))
-                    print("\n")
-
-    if command == "c":
-        os.system("clear")
+        num = 0
+        for studentx in students:
+            if command.lower() in studentx.name.lower():
+                studentx.present()
+                num += 1
+        print("Encontrei " + str(num) + " alunos")
