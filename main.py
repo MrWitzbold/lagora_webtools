@@ -59,7 +59,7 @@ data = []
 for line in file:
     if html_landmark in line or html_landmark2 in line:
         num += 1
-        data.append(line.replace(html_landmark, "").replace(html_landmark2, "").replace("</span></td>", "").replace("<br/>", "").replace("\n", ""))
+        data.append(line.replace(html_landmark, "").replace(html_landmark2, "").replace("</span></td>", "").replace("<br/>", ", ").replace("\n", ""))
         if num == 9:
             new_student = student(data[0], data[1], data[2], data[3], data[5], data[6], data[7], data[8]) # ignores 4th because it's redundant, its just like, 3º ano instead of 31 or 32
             students.append(new_student)
@@ -84,7 +84,7 @@ while True:
                 num += 1
         print(str(num) + " alunos\n")
     else:
-        if command != "c":
+        if command != "c" and command != "":
             num = 0
             for studentx in students:
                 if command.lower() in studentx.name.lower():
