@@ -9,6 +9,16 @@ colorama.init()
 # students2025 = open("2025", "r", encoding="utf-8").readlines()
 # use phones modelo 2 html
 
+def normalize_string(input_string):
+    # Normalize the string to remove accents and other diacritics
+    normalized_string = unicodedata.normalize('NFD', input_string)
+    normalized_string = ''.join([char for char in normalized_string if unicodedata.category(char) != 'Mn'])
+    
+    # Convert to lowercase
+    normalized_string = normalized_string.lower()
+    
+    return normalized_string
+
 def calculate_age(birth_str):
     birth_date = datetime.strptime(birth_str, "%d/%m/%Y")
     today = datetime.today()
@@ -87,7 +97,7 @@ while True:
         if command != "c" and command != "":
             num = 0
             for studentx in students:
-                if command.lower() in studentx.name.lower():
+                if normalize_string(command) in normalize_string(studentx.name):
                     studentx.present()
                     num += 1
             print("Encontrei " + str(num) + " alunos")
