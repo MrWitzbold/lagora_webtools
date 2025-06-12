@@ -65,21 +65,47 @@ class student:
 students = []
 num = 0
 data = []
-
+seen_ra = []
 for line in file:
     if html_landmark in line or html_landmark2 in line:
         num += 1
         data.append(line.replace(html_landmark, "").replace(html_landmark2, "").replace("</span></td>", "").replace("<br/>", ", ").replace("\n", ""))
         if num == 9:
-            new_student = student(data[0], data[1], data[2], data[3], data[5], data[6], data[7], data[8]) # ignores 4th because it's redundant, its just like, 3º ano instead of 31 or 32
-            students.append(new_student)
+            if data[0] not in seen_ra:
+                new_student = student(data[0], data[1], data[2], data[3], data[5], data[6], data[7], data[8]) # ignores 4th because it's redundant, its just like, 3º ano instead of 31 or 32
+                if "AEE" not in str(data[5]):
+                    students.append(new_student)
+                    seen_ra.append(data[0])
+            else:
+                for studentx in students:
+                    if data[0] == studentx.ra:
+                        if studentx.phones != data[8]:
+                            studentx.phones = studentx.phones + ", " + data[8] # merge phone numbers if cloned and phones are different
             num = 0
             data = []
-            
+
+# Check for cloned students
+seen_ra = []
+seen_student = []
+pairs = []
+count = 0
+for i in range(0, len(students)):
+    studentx = students[i]
+    if studentx.ra in seen_ra:
+        for j in range(0, len(seen_ra)):
+            if seen_ra[j] == studentx.ra:
+                count += 1
+                print(studentx.name + str(studentx.ra) + " = " + seen_student[j] + str(seen_ra[j]))
+                pairs.append([i])
+    seen_ra.append(studentx.ra)
+    seen_student.append(studentx.name)
+    
+print(str(count) + " cloned")
+    
 while True:
     command = input(Fore.RED + "Lagoraweb: " + Style.RESET_ALL)
-    map1 = ["JARDIM I A", "JARDIM I B", "JARDIM II A", "JARDIM II B"]
-    map2 = ["J1A", "J2B", "J2A", "J2B"]
+    map1 = ["JARDIM I A", "JARDIM II B", "JARDIM II A"]
+    map2 = ["J1A", "J2B", "J2A"]
     is_kindheit = False
     for i in range(0, len(map2)):
         if command == map2[i]:
@@ -89,7 +115,7 @@ while True:
     if is_kindheit or command.isdigit():
         num = 0
         for studentx in students:
-            if command in studentx.cohort:
+            if command.lower().strip() in studentx.cohort.lower().strip():
                 print(Fore.GREEN + studentx.name + Style.RESET_ALL)
                 num += 1
         print(str(num) + " alunos\n")
