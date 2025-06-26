@@ -1,12 +1,14 @@
+
 import os
 import socket
 import unicodedata
 from datetime import datetime
-from flask import Flask, request, render_template_string, url_for, Response
+from flask import Flask, request, render_template_string, url_for, Response, send_file
+from pdf_search import search_pdfs
 
 app = Flask(__name__)
 
-HTML_TEMPLATE = '''
+HTML_TEMPLATE = """
 <!doctype html>
 <html>
 <head>
@@ -63,17 +65,19 @@ HTML_TEMPLATE = '''
     </style>
 </head>
 <body>
-    <img src="{{ url_for('static', filename='logo.png') }}" width="100" height="100">
+    <img src="{{ url_for('static', filename='logo.png') }}" width="200" height="200">
     <h2>Buscar Aluno ou Turma</h2>
     <form method="GET">
         <input name="query" placeholder="Nome ou Turma (ex: J2A, 31)" autofocus>
         <input type="submit" name="action" value="Buscar">
-        <input type="submit" name="action" value="Exportar dados da turma" id="exportar" style="background-color: #cc3333;">
-        <input type="submit" name="action" value="Exportar arquivo de contatos" id="exportar_contatos" style="background-color: #cc3333;">
+        <input type="submit" name="action" value="Exportar dados da turma" id="exportar" style="background-color: #8c6200;">
+        <input type="submit" name="action" value="Exportar arquivo de contatos" id="exportar_contatos" style="background-color: #8c6200;">
+        <input type="submit" name="action" value="Procurar nas atas 2022 - 2000" id="pesquisar_astas" style="background-color: #cc3333;">
     </form>
     {% if results %}
     <h3>Resultados:</h3>
     {% if mode == 'search' %}
+        <p><strong>{{ results|length }} alunos encontrados.</strong></p>
         {% for s in results %}
             <div class="student">
                 <strong>Nome:</strong> {{ s.name }}<br>
@@ -82,14 +86,16 @@ HTML_TEMPLATE = '''
                 <strong>Números:</strong> {{ s.phones }}<br>
             </div>
         {% endfor %}
-        <p><strong>{{ results|length }} alunos encontrados.</strong></p>
     {% elif mode == 'export' %}
         {% for line in results %}
-            <div class="student">{{ line | safe}}</div>
+            <div class="student">{{ line | safe }}</div>
         {% endfor %}
-        <p><strong>{{ results|length }} linha(s) encontradas.</strong></p>
+    {% elif mode == 'atas' %}
+        {% for line in results %}
+            <div class="student">{{ line | safe }}</div>
+        {% endfor %}
     {% endif %}
-{% endif %}
+    {% endif %}
 <script>
 document.querySelector("form").addEventListener("keydown", function(e) {
     if (e.key === "Enter") {
@@ -102,7 +108,7 @@ document.querySelector("form").addEventListener("keydown", function(e) {
 </script>
 </body>
 </html>
-'''
+"""
 
 def generate_vcf(student):
     vcards = []
@@ -119,7 +125,7 @@ END:VCARD"""
 def normalize_string(input_string):
     normalized = unicodedata.normalize('NFD', input_string)
     return ''.join([c for c in normalized if unicodedata.category(c) != 'Mn']).lower()
-   
+
 def normalize_text(text):
     return unicodedata.normalize("NFKC", text).casefold()
 
@@ -130,18 +136,6 @@ def calculate_age(birth_str):
     if (today.month, today.day) < (birth_date.month, birth_date.day):
         age -= 1
     return age
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-html_landmark = '<span style="font-family: \'DejaVu Sans\', Arial, Helvetica, sans-serif; color: #000000; font-size: 8px; line-height: 1.1640625;">'
-html_landmark2 = '<span style="font-family: \'DejaVu Sans\', Arial, Helvetica, sans-serif; color: #000000; font-size: 8px; line-height: 1; *line-height: normal;">'
-html_files = [f for f in os.listdir(current_dir) if f.lower().endswith('.html')]
-
-if not html_files:
-    print("Nenhum arquivo HTML encontrado.")
-    exit()
-
-html_path = os.path.join(current_dir, html_files[0])
-file = open(html_path, "r", encoding="utf-8").readlines()
 
 class Student:
     def __init__(self, ra, name, sex, birth, cohort, state, mat, phones):
@@ -154,18 +148,21 @@ class Student:
         self.mat = mat
         self.phones = phones
         self.age = calculate_age(self.birth)
-    
-students = []
-data = []
-seen_ra = []
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+html_landmark = '<span style="font-family: \'DejaVu Sans\', Arial, Helvetica, sans-serif; color: #000000; font-size: 8px; line-height: 1.1640625;">'
+html_landmark2 = '<span style="font-family: \'DejaVu Sans\', Arial, Helvetica, sans-serif; color: #000000; font-size: 8px; line-height: 1; *line-height: normal;">'
+html_files = [f for f in os.listdir(current_dir) if f.lower().endswith('.html')]
+file = open(os.path.join(current_dir, html_files[0]), "r", encoding="utf-8").readlines()
+
+students, data, seen_ra = [], [], []
 
 for line in file:
     if html_landmark in line or html_landmark2 in line:
         data.append(line.replace(html_landmark, "").replace(html_landmark2, "").replace("</span></td>", "").replace("<br/>", ", ").strip())
         if len(data) == 9:
             if data[0] not in seen_ra and "AEE" not in str(data[5]):
-                s = Student(data[0], data[1].replace("&nbsp;", ""), data[2], data[3], data[5], data[6], data[7], data[8])
-                students.append(s)
+                students.append(Student(data[0], data[1].replace("&nbsp;", ""), data[2], data[3], data[5], data[6], data[7], data[8]))
                 seen_ra.append(data[0])
             else:
                 for s in students:
@@ -192,16 +189,14 @@ def index():
 
     elif query and action == "Exportar dados da turma":
         mode = "export"
-        RAs = ["RA: "]
-        firstnames = ["Primeiros nomes: "]
-        lastnames = ["Sobrenomes: "]
-        users = ["Usuários"]
-        passwords = ["Senhas: "]
-        cohorts = ["Turmas: "]
-        emails = ["Emails: "]
+        RAs, fullnames, firstnames, lastnames, users, passwords, cohorts, emails = (
+            ["RA: "], ["Nomes completos: "], ["Primeiros nomes: "], ["Sobrenomes: "],
+            ["Usuários"], ["Senhas: "], ["Turmas: "], ["Emails: "]
+        )
         for s in students:
             if query.lower() in s.cohort.lower():
                 RAs.append(s.ra)
+                fullnames.append(str(s.name))
                 firstnames.append(s.name.split()[0])
                 lastnames.append(" ".join(s.name.split()[1:]))
                 users.append(normalize_text(s.name.lower()))
@@ -209,7 +204,9 @@ def index():
                 cohorts.append(str(s.cohort).replace("TURMA ", ""))
                 emails.append("sargentoraymundo@edu.viamao.rs.gov.br")
         results = [
+            "Número de alunos: " + str(len(RAs)-1),
             "<br>".join(RAs),
+            "<br>".join(fullnames),
             "<br>".join(firstnames),
             "<br>".join(lastnames),
             "<br>".join(users),
@@ -219,24 +216,32 @@ def index():
         ]
 
     elif action == "Exportar arquivo de contatos":
-        vcards = []
-        for s in students:
-            vcf = generate_vcf(s)
-            vcards.append(vcf)
-        full_vcf = "\n\n".join(vcards)
+        vcards = [generate_vcf(s) for s in students]
         return Response(
-            full_vcf,
+            "\n\n".join(vcards),
             mimetype="text/vcard",
             headers={"Content-Disposition": 'attachment; filename="contatos.vcf"'}
         )
 
+    elif query and action == "Procurar nas atas 2022 - 2000":
+        mode = "atas"
+        pdf_folder = os.path.join("static", "atas_organizadas")
+        search_hits = search_pdfs(pdf_folder, query)
+        results = []
+        for year, page, path in search_hits:
+            link = url_for("download_pdf", filepath=path)
+            results.append(f"Ano: {year} | Página: {page} — <a href='{link}'>Baixar PDF</a>")
+
     return render_template_string(HTML_TEMPLATE, results=results, url_for=url_for, mode=mode)
 
-# Get local IP address for display
+@app.route("/download_pdf")
+def download_pdf():
+    filepath = request.args.get("filepath")
+    return send_file(filepath, as_attachment=True)
+
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        # Connect to a public IP, doesn't actually send packets
         s.connect(('8.8.8.8', 80))
         ip = s.getsockname()[0]
     except:
