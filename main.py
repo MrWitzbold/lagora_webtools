@@ -1,51 +1,149 @@
 import os
+import socket
 import unicodedata
-from colorama import Fore, Style
-import colorama
 from datetime import datetime
+from flask import Flask, request, render_template_string, url_for, Response
 
-colorama.init()
-# print(Fore.GREEN + name + Style.RESET_ALL)
-# students2025 = open("2025", "r", encoding="utf-8").readlines()
-# use phones modelo 2 html
+app = Flask(__name__)
+
+HTML_TEMPLATE = '''
+<!doctype html>
+<html>
+<head>
+    <title>LagoraWeb</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        input {
+            padding: 5px;
+            font-size: 16px;
+            background-color: #222;
+            border: 1px solid #444;
+            color: #eee;
+            border-radius: 4px;
+        }
+        input::placeholder {
+            color: #888;
+        }
+        input:focus {
+            outline: none;
+            border-color: #66aaff;
+            box-shadow: 0 0 5px #66aaff;
+            background-color: #1e1e1e;
+        }
+        input[type="submit"] {
+            cursor: pointer;
+            background-color: #3366cc;
+            border: none;
+            color: white;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        input[type="submit"]:hover {
+            background-color: #5599ff;
+        }
+        .student {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #1e1e1e;
+            border-radius: 5px;
+            box-shadow: 0 0 5px #000;
+            color: #ddd;
+        }
+        h2, h3, strong, p {
+            color: #ddd;
+        }
+        img {
+            filter: drop-shadow(0 0 3px #000);
+        }
+    </style>
+</head>
+<body>
+    <img src="{{ url_for('static', filename='logo.png') }}" width="100" height="100">
+    <h2>Buscar Aluno ou Turma</h2>
+    <form method="GET">
+        <input name="query" placeholder="Nome ou Turma (ex: J2A, 31)" autofocus>
+        <input type="submit" name="action" value="Buscar">
+        <input type="submit" name="action" value="Exportar dados da turma" id="exportar" style="background-color: #cc3333;">
+        <input type="submit" name="action" value="Exportar arquivo de contatos" id="exportar_contatos" style="background-color: #cc3333;">
+    </form>
+    {% if results %}
+    <h3>Resultados:</h3>
+    {% if mode == 'search' %}
+        {% for s in results %}
+            <div class="student">
+                <strong>Nome:</strong> {{ s.name }}<br>
+                <strong>Turma:</strong> {{ s.cohort }}<br>
+                <strong>Idade:</strong> {{ s.age }}<br>
+                <strong>Números:</strong> {{ s.phones }}<br>
+            </div>
+        {% endfor %}
+        <p><strong>{{ results|length }} alunos encontrados.</strong></p>
+    {% elif mode == 'export' %}
+        {% for line in results %}
+            <div class="student">{{ line | safe}}</div>
+        {% endfor %}
+        <p><strong>{{ results|length }} linha(s) encontradas.</strong></p>
+    {% endif %}
+{% endif %}
+<script>
+document.querySelector("form").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+        e.preventDefault();
+        const form = e.target.form;
+        const buscarBtn = form.querySelector("input[type='submit'][value='Buscar']");
+        if (buscarBtn) buscarBtn.click();
+    }
+});
+</script>
+</body>
+</html>
+'''
+
+def generate_vcf(student):
+    vcards = []
+    phones = [p.strip() for p in student.phones.split(",") if p.strip()]
+    for phone in phones:
+        vcard = f"""BEGIN:VCARD
+VERSION:3.0
+FN:{student.name}
+TEL:{phone}
+END:VCARD"""
+        vcards.append(vcard)
+    return "\n".join(vcards)
 
 def normalize_string(input_string):
-    # Normalize the string to remove accents and other diacritics
-    normalized_string = unicodedata.normalize('NFD', input_string)
-    normalized_string = ''.join([char for char in normalized_string if unicodedata.category(char) != 'Mn'])
-    
-    # Convert to lowercase
-    normalized_string = normalized_string.lower()
-    
-    return normalized_string
+    normalized = unicodedata.normalize('NFD', input_string)
+    return ''.join([c for c in normalized if unicodedata.category(c) != 'Mn']).lower()
+   
+def normalize_text(text):
+    return unicodedata.normalize("NFKC", text).casefold()
 
 def calculate_age(birth_str):
     birth_date = datetime.strptime(birth_str, "%d/%m/%Y")
     today = datetime.today()
     age = today.year - birth_date.year
-
-    # Adjust if birthday hasn't occurred yet this year
     if (today.month, today.day) < (birth_date.month, birth_date.day):
         age -= 1
-
     return age
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 html_landmark = '<span style="font-family: \'DejaVu Sans\', Arial, Helvetica, sans-serif; color: #000000; font-size: 8px; line-height: 1.1640625;">'
 html_landmark2 = '<span style="font-family: \'DejaVu Sans\', Arial, Helvetica, sans-serif; color: #000000; font-size: 8px; line-height: 1; *line-height: normal;">'
 html_files = [f for f in os.listdir(current_dir) if f.lower().endswith('.html')]
-html_path = ""
 
-if html_files:
-    html_path = os.path.join(current_dir, html_files[0])
-else:
-    print("No HTML files found in the folder.")
-    input("")
+if not html_files:
+    print("Nenhum arquivo HTML encontrado.")
     exit()
-    
+
+html_path = os.path.join(current_dir, html_files[0])
 file = open(html_path, "r", encoding="utf-8").readlines()
 
-class student:
+class Student:
     def __init__(self, ra, name, sex, birth, cohort, state, mat, phones):
         self.ra = ra
         self.name = name
@@ -55,77 +153,100 @@ class student:
         self.state = state
         self.mat = mat
         self.phones = phones
-    def present(self):
-        print(Fore.RED + "Aluno: " + self.name + Style.RESET_ALL)
-        print(Fore.YELLOW + "Turma: " + self.cohort + Style.RESET_ALL)
-        print(Fore.YELLOW + "Idade: " + str(calculate_age(self.birth)) + Style.RESET_ALL)
-        print(Fore.GREEN + "Números: " + self.phones + Style.RESET_ALL)
-        print("\n")
-
+        self.age = calculate_age(self.birth)
+    
 students = []
-num = 0
 data = []
 seen_ra = []
+
 for line in file:
     if html_landmark in line or html_landmark2 in line:
-        num += 1
-        data.append(line.replace(html_landmark, "").replace(html_landmark2, "").replace("</span></td>", "").replace("<br/>", ", ").replace("\n", ""))
-        if num == 9:
-            if data[0] not in seen_ra:
-                new_student = student(data[0], data[1], data[2], data[3], data[5], data[6], data[7], data[8]) # ignores 4th because it's redundant, its just like, 3º ano instead of 31 or 32
-                if "AEE" not in str(data[5]):
-                    students.append(new_student)
-                    seen_ra.append(data[0])
+        data.append(line.replace(html_landmark, "").replace(html_landmark2, "").replace("</span></td>", "").replace("<br/>", ", ").strip())
+        if len(data) == 9:
+            if data[0] not in seen_ra and "AEE" not in str(data[5]):
+                s = Student(data[0], data[1].replace("&nbsp;", ""), data[2], data[3], data[5], data[6], data[7], data[8])
+                students.append(s)
+                seen_ra.append(data[0])
             else:
-                for studentx in students:
-                    if data[0] == studentx.ra:
-                        if studentx.phones != data[8]:
-                            studentx.phones = studentx.phones + ", " + data[8] # merge phone numbers if cloned and phones are different
-            num = 0
+                for s in students:
+                    if data[0] == s.ra and s.phones != data[8]:
+                        s.phones += ", " + data[8]
             data = []
 
-# Check for cloned students
-seen_ra = []
-seen_student = []
-pairs = []
-count = 0
-for i in range(0, len(students)):
-    studentx = students[i]
-    if studentx.ra in seen_ra:
-        for j in range(0, len(seen_ra)):
-            if seen_ra[j] == studentx.ra:
-                count += 1
-                print(studentx.name + str(studentx.ra) + " = " + seen_student[j] + str(seen_ra[j]))
-                pairs.append([i])
-    seen_ra.append(studentx.ra)
-    seen_student.append(studentx.name)
-    
-print(str(count) + " cloned")
-    
-while True:
-    command = input(Fore.RED + "Lagoraweb: " + Style.RESET_ALL)
-    map1 = ["JARDIM I A", "JARDIM II B", "JARDIM II A"]
-    map2 = ["J1A", "J2B", "J2A"]
-    is_kindheit = False
-    for i in range(0, len(map2)):
-        if command == map2[i]:
-            is_kindheit = True
-            command = map1[i]
-            
-    if is_kindheit or command.isdigit():
-        num = 0
-        for studentx in students:
-            if command.lower().strip() in studentx.cohort.lower().strip():
-                print(Fore.GREEN + studentx.name + Style.RESET_ALL)
-                num += 1
-        print(str(num) + " alunos\n")
-    else:
-        if command != "c" and command != "":
-            num = 0
-            for studentx in students:
-                if normalize_string(command) in normalize_string(studentx.name):
-                    studentx.present()
-                    num += 1
-            print("Encontrei " + str(num) + " alunos")
-        else:
-            os.system('cls' if os.name == 'nt' else 'clear')
+@app.route("/", methods=["GET"])
+def index():
+    query = request.args.get("query", "").strip()
+    action = request.args.get("action")
+    results = []
+    mode = None
+
+    if query and action == "Buscar":
+        mode = "search"
+        map1 = ["JARDIM I A", "JARDIM II B", "JARDIM II A"]
+        map2 = ["J1A", "J2B", "J2A"]
+        if query in map2:
+            query = map1[map2.index(query)]
+        for s in students:
+            if query.lower() in s.cohort.lower() or normalize_string(query) in normalize_string(s.name):
+                results.append(s)
+
+    elif query and action == "Exportar dados da turma":
+        mode = "export"
+        RAs = ["RA: "]
+        firstnames = ["Primeiros nomes: "]
+        lastnames = ["Sobrenomes: "]
+        users = ["Usuários"]
+        passwords = ["Senhas: "]
+        cohorts = ["Turmas: "]
+        emails = ["Emails: "]
+        for s in students:
+            if query.lower() in s.cohort.lower():
+                RAs.append(s.ra)
+                firstnames.append(s.name.split()[0])
+                lastnames.append(" ".join(s.name.split()[1:]))
+                users.append(normalize_text(s.name.lower()))
+                passwords.append("sargento2025")
+                cohorts.append(str(s.cohort).replace("TURMA ", ""))
+                emails.append("sargentoraymundo@edu.viamao.rs.gov.br")
+        results = [
+            "<br>".join(RAs),
+            "<br>".join(firstnames),
+            "<br>".join(lastnames),
+            "<br>".join(users),
+            "<br>".join(passwords),
+            "<br>".join(cohorts),
+            "<br>".join(emails)
+        ]
+
+    elif action == "Exportar arquivo de contatos":
+        vcards = []
+        for s in students:
+            vcf = generate_vcf(s)
+            vcards.append(vcf)
+        full_vcf = "\n\n".join(vcards)
+        return Response(
+            full_vcf,
+            mimetype="text/vcard",
+            headers={"Content-Disposition": 'attachment; filename="contatos.vcf"'}
+        )
+
+    return render_template_string(HTML_TEMPLATE, results=results, url_for=url_for, mode=mode)
+
+# Get local IP address for display
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # Connect to a public IP, doesn't actually send packets
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+    except:
+        ip = '127.0.0.1'
+    finally:
+        s.close()
+    return ip
+
+if __name__ == "__main__":
+    port = 5000
+    ip = get_local_ip()
+    print(f"Servidor rodando em: http://{ip}:{port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
