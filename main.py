@@ -72,7 +72,7 @@ HTML_TEMPLATE = """
         <input type="submit" name="action" value="Buscar">
         <input type="submit" name="action" value="Exportar dados da turma" id="exportar" style="background-color: #8c6200;">
         <input type="submit" name="action" value="Exportar arquivo de contatos" id="exportar_contatos" style="background-color: #8c6200;">
-        <input type="submit" name="action" value="Procurar nas atas 2022 - 2001" id="pesquisar_astas" style="background-color: #cc3333;">
+        <input type="submit" name="action" value="Procurar nas atas 2021 - 1988" id="pesquisar_astas" style="background-color: #cc3333;">
     </form>
     {% if results %}
     <h3>Resultados:</h3>
@@ -223,7 +223,7 @@ def index():
             headers={"Content-Disposition": 'attachment; filename="contatos.vcf"'}
         )
 
-    elif query and action == "Procurar nas atas 2022 - 2001":
+    elif query and action == "Procurar nas atas 2021 - 1988":
         mode = "atas"
         pdf_folder = os.path.join("static", "atas_organizadas")
         search_hits = search_pdfs(pdf_folder, query)
